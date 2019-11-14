@@ -13,6 +13,7 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit() {
-    this.appService.test().subscribe(console.log);
+    // this.appService.test().subscribe(console.log);
+    this.appService.testWithParams('grappa', { payload: 'library' }).subscribe(console.log);
   }
 }
