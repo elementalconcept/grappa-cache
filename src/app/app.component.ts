@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component } from '@angular/core';
+
 import { AppService } from './app.service';
 
 @Component({
@@ -6,14 +7,11 @@ import { AppService } from './app.service';
   templateUrl: './app.component.html',
   styleUrls: [ './app.component.scss' ]
 })
-export class AppComponent implements OnInit {
-  title = 'grappa-cache';
-
+export class AppComponent {
   constructor(private readonly appService: AppService) {
   }
 
-  ngOnInit() {
-    // this.appService.test().subscribe(console.log);
-    this.appService.testWithParams('grappa', { payload: 'library' }).subscribe(console.log);
+  makeTestCall() {
+    this.appService.test().subscribe(console.log);
   }
 }
