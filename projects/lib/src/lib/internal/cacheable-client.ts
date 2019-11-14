@@ -48,12 +48,15 @@ export class CacheableClient implements HttpRestClient<any> {
             take(1),
             map(online => [ hash, this.persistence.get(hash), online ]))),
         mergeMap(([ hash, cache, online ]: [ string, string, boolean ]) => iif(
+          // TODO We should only react to offline status and errors
+          // Add catchError() to fetch data from cache when response.status === 0
           () => cache === null || online,
           this.cacheResponse(hash, defaultClient.request(request, observe), observe),
           CacheableClient.parseCache(cache)))
       );
   }
 
+  // TODO Remove
   private cachedRequest(request: RestRequest, observe: ObserveOptions, defaultClient?: HttpRestClient<any>): Observable<any> {
     return CacheableClient.hashRequest(request)
       .pipe(

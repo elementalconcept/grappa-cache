@@ -12,6 +12,6 @@ export class AppComponent {
   }
 
   makeTestCall() {
-    this.appService.test().subscribe(console.log);
+    this.appService.test().subscribe(console.log, console.log);
   }
 }
