@@ -1,7 +1,2 @@
-/*
- * Public API Surface of lib
- */
-
-export * from './lib/lib.service';
-export * from './lib/lib.component';
-export * from './lib/lib.module';
+export { GrappaCacheModule } from './lib/grappa-cache.module';
+export * from './lib/public';

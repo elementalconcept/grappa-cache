@@ -19,11 +19,17 @@
       "dom"
     ],
     "paths": {
-      "lib": [
+      "@elemental-concept/grappa-cache": [
         "dist/lib"
       ],
-      "lib/*": [
+      "@elemental-concept/grappa-cache/*": [
         "dist/lib/*"
+      ],
+      "@elemental-concept/grappa": [
+        "dist/grappa"
+      ],
+      "@elemental-concept/grappa/*": [
+        "dist/grappa/*"
       ]
     }
   }
