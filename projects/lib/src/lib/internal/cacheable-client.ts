@@ -12,26 +12,11 @@ import { LocalStorage } from '../public/persistence/local-storage';
 export class CacheableClient implements HttpRestClient<any> {
   private readonly persistence: PersistenceManager = new LocalStorage();
 
-  request(request: RestRequest, observe: ObserveOptions, defaultClient?: HttpRestClient<any>): Observable<any> {
-    return this.hashRequest(request)
-      .pipe(
-        map(hash => [ hash, this.persistence.get(hash) ]),
-        mergeMap(([ hash, cache ]) => iif(
-          () => cache === null,
-          this.cacheResponse(hash, defaultClient.request(request, observe), observe),
-          this.parseCache(cache)))
-      );
-  }
-
-  private cacheResponse(hash: string, response: Observable<HttpResponse<any> | any>, observe: ObserveOptions) {
-    return response.pipe(tap(res => this.persistence.put(hash, JSON.stringify(observe === ObserveOptions.Body ? res : res.body))));
-  }
-
-  private parseCache(cache: string) {
+  private static parseCache(cache: string) {
     return of(JSON.parse(cache));
   }
 
-  private hashRequest(request: RestRequest) {
+  private static hashRequest(request: RestRequest) {
     const method = request.method.toUpperCase();
     const body = (method === 'POST' || method === 'PUT') && request.args.length > 0 ? request.args[ request.args.length - 1 ] : undefined;
     const baseUrl = typeof request.baseUrl === 'function' ? request.baseUrl() : request.baseUrl;
@@ -49,6 +34,20 @@ export class CacheableClient implements HttpRestClient<any> {
       + JSON.stringify(body);
 
     return sha256(key);
-    // return of(key);
+  }
+
+  request(request: RestRequest, observe: ObserveOptions, defaultClient?: HttpRestClient<any>): Observable<any> {
+    return CacheableClient.hashRequest(request)
+      .pipe(
+        map(hash => [ hash, this.persistence.get(hash) ]),
+        mergeMap(([ hash, cache ]) => iif(
+          () => cache === null,
+          this.cacheResponse(hash, defaultClient.request(request, observe), observe),
+          CacheableClient.parseCache(cache)))
+      );
+  }
+
+  private cacheResponse(hash: string, response: Observable<HttpResponse<any> | any>, observe: ObserveOptions) {
+    return response.pipe(tap(res => this.persistence.put(hash, JSON.stringify(observe === ObserveOptions.Body ? res : res.body))));
   }
 }
