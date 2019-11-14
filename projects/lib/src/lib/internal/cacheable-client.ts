@@ -1,8 +1,9 @@
 import { HttpResponse } from '@angular/common/http';
 
 import { iif, Observable, of } from 'rxjs';
-import { map, mergeMap, tap } from 'rxjs/operators';
+import { map, mergeMap, take, tap } from 'rxjs/operators';
 
+import { OfflineMonitorService } from '@elemental-concept/offline-monitor';
 import { HttpRestClient, ObserveOptions, RestRequest, UrlParser } from '@elemental-concept/grappa';
 
 import { sha256 } from './sha256';
@@ -10,6 +11,8 @@ import { PersistenceManager } from '../public/persistence/persistence-manager';
 import { LocalStorage } from '../public/persistence/local-storage';
 
 export class CacheableClient implements HttpRestClient<any> {
+  // TODO We should use Angular DI instead in the future
+  private readonly offlineMonitor = new OfflineMonitorService();
   private readonly persistence: PersistenceManager = new LocalStorage();
 
   private static parseCache(cache: string) {
@@ -37,6 +40,21 @@ export class CacheableClient implements HttpRestClient<any> {
   }
 
   request(request: RestRequest, observe: ObserveOptions, defaultClient?: HttpRestClient<any>): Observable<any> {
+    return CacheableClient.hashRequest(request)
+      .pipe(
+        mergeMap(hash => this.offlineMonitor
+          .state
+          .pipe(
+            take(1),
+            map(online => [ hash, this.persistence.get(hash), online ]))),
+        mergeMap(([ hash, cache, online ]: [ string, string, boolean ]) => iif(
+          () => cache === null || online,
+          this.cacheResponse(hash, defaultClient.request(request, observe), observe),
+          CacheableClient.parseCache(cache)))
+      );
+  }
+
+  private cachedRequest(request: RestRequest, observe: ObserveOptions, defaultClient?: HttpRestClient<any>): Observable<any> {
     return CacheableClient.hashRequest(request)
       .pipe(
         map(hash => [ hash, this.persistence.get(hash) ]),
