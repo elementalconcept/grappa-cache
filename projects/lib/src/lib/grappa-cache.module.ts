@@ -1,8 +1,10 @@
 import { NgModule } from '@angular/core';
 
+import { OfflineMonitorModule } from '@elemental-concept/offline-monitor';
+
 @NgModule({
   declarations: [],
-  imports: [],
+  imports: [ OfflineMonitorModule ],
   exports: []
 })
 export class GrappaCacheModule {
