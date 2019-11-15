@@ -9,8 +9,9 @@ import { HttpRestClient, ObserveOptions, Registry, RestRequest, UrlParser } from
 import { sha256 } from './sha256';
 import { PersistenceManager } from '../public/persistence/persistence-manager';
 import { LocalStorage } from '../public/persistence/local-storage';
-import { CustomMetadataKey } from './constants';
+import { CustomMetadataKey, RequestCacheKey } from './constants';
 import { MethodOptions } from './method-options';
+import { RequestCacheRecord } from './request-cache-record';
 
 export class CacheableClient implements HttpRestClient<any> {
   // TODO We should use Angular DI instead in the future
@@ -36,10 +37,15 @@ export class CacheableClient implements HttpRestClient<any> {
     }));
   }
 
+  // TODO That should be handled by main library
+  private static getBaseUrl(request: RestRequest) {
+    return typeof request.baseUrl === 'function' ? request.baseUrl() : request.baseUrl;
+  }
+
   private static hashRequest(request: RestRequest) {
     const method = request.method.toUpperCase();
     const body = (method === 'POST' || method === 'PUT') && request.args.length > 0 ? request.args[ request.args.length - 1 ] : undefined;
-    const baseUrl = typeof request.baseUrl === 'function' ? request.baseUrl() : request.baseUrl;
+    const baseUrl = CacheableClient.getBaseUrl(request);
 
     const key = request.method.toUpperCase()
       + '::'
@@ -67,15 +73,43 @@ export class CacheableClient implements HttpRestClient<any> {
         return this.runCachedResponse(request, observe, defaultClient);
 
       case 'replayRequest':
-        return this.runCachedRequest(request, observe, defaultClient);
+        return this.runCachedRequest(request, observe, defaultClient, meta.replyWith);
 
       default:
         return defaultClient.request(request, observe);
     }
   }
 
-  private runCachedRequest = (request: RestRequest, observe: ObserveOptions, defaultClient: HttpRestClient<any>) => {
-    return of(null);
+  private runCachedRequest = (request: RestRequest, observe: ObserveOptions, defaultClient: HttpRestClient<any>, replyWith: any) => {
+    return this.offlineMonitor
+      .state
+      .pipe(
+        take(1),
+        mergeMap(online => iif(
+          () => online,
+          defaultClient
+            .request(request, observe)
+            .pipe(catchError((e: HttpErrorResponse) => e.status === 0 ? this.saveRequest(request, replyWith) : throwError(e))),
+          this.saveRequest(request, replyWith))));
+  };
+
+  private saveRequest = (request: RestRequest, replyWith: any) => {
+    const storedValue = this.persistence.get(RequestCacheKey);
+    const records: RequestCacheRecord[] = storedValue === null ? [] : JSON.parse(storedValue);
+
+    records.push({
+      baseUrl: CacheableClient.getBaseUrl(request),
+      endpoint: request.endpoint,
+      method: request.method,
+      headers: request.headers,
+      params: request.params,
+      args: request.args,
+      processed: false
+    });
+
+    this.persistence.put(RequestCacheKey, JSON.stringify(records));
+
+    return of(replyWith);
   };
 
   private runCachedResponse = (request: RestRequest, observe: ObserveOptions, defaultClient: HttpRestClient<any>) =>
