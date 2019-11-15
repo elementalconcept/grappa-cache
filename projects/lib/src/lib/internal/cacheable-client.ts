@@ -1,7 +1,7 @@
-import { HttpResponse } from '@angular/common/http';
+import { HttpErrorResponse, HttpResponse } from '@angular/common/http';
 
-import { iif, Observable, of } from 'rxjs';
-import { map, mergeMap, take, tap } from 'rxjs/operators';
+import { iif, Observable, of, throwError } from 'rxjs';
+import { catchError, map, mergeMap, take, tap } from 'rxjs/operators';
 
 import { OfflineMonitorService } from '@elemental-concept/offline-monitor';
 import { HttpRestClient, ObserveOptions, RestRequest, UrlParser } from '@elemental-concept/grappa';
@@ -15,8 +15,23 @@ export class CacheableClient implements HttpRestClient<any> {
   private readonly offlineMonitor = new OfflineMonitorService();
   private readonly persistence: PersistenceManager = new LocalStorage();
 
-  private static parseCache(cache: string) {
-    return of(JSON.parse(cache));
+  private static parseCache(cache: string | null) {
+    if (cache === null) {
+      return CacheableClient.cacheError();
+    }
+
+    try {
+      return of(JSON.parse(cache));
+    } catch (e) {
+      return CacheableClient.cacheError();
+    }
+  }
+
+  private static cacheError() {
+    return throwError(new HttpErrorResponse({
+      status: 0,
+      statusText: 'Cache is unavailable'
+    }));
   }
 
   private static hashRequest(request: RestRequest) {
@@ -48,10 +63,9 @@ export class CacheableClient implements HttpRestClient<any> {
             take(1),
             map(online => [ hash, this.persistence.get(hash), online ]))),
         mergeMap(([ hash, cache, online ]: [ string, string, boolean ]) => iif(
-          // TODO We should only react to offline status and errors
-          // Add catchError() to fetch data from cache when response.status === 0
-          () => cache === null || online,
-          this.cacheResponse(hash, defaultClient.request(request, observe), observe),
+          () => online,
+          this.cacheResponse(hash, defaultClient.request(request, observe), observe)
+            .pipe(catchError((e: HttpErrorResponse) => e.status === 0 ? CacheableClient.parseCache(cache) : throwError(e))),
           CacheableClient.parseCache(cache)))
       );
   }
