@@ -1,7 +1,7 @@
-import { HttpErrorResponse, HttpResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 
 import { iif, Observable, of, throwError } from 'rxjs';
-import { catchError, map, mergeMap, take, tap } from 'rxjs/operators';
+import { catchError, mergeMap, take, tap } from 'rxjs/operators';
 
 import { OfflineMonitorService } from '@elemental-concept/offline-monitor';
 import { HttpRestClient, ObserveOptions, RestRequest, UrlParser } from '@elemental-concept/grappa';
@@ -55,34 +55,31 @@ export class CacheableClient implements HttpRestClient<any> {
   }
 
   request(request: RestRequest, observe: ObserveOptions, defaultClient?: HttpRestClient<any>): Observable<any> {
-    return CacheableClient.hashRequest(request)
+    return this.offlineMonitor
+      .state
       .pipe(
-        mergeMap(hash => this.offlineMonitor
-          .state
-          .pipe(
-            take(1),
-            map(online => [ hash, this.persistence.get(hash), online ]))),
-        mergeMap(([ hash, cache, online ]: [ string, string, boolean ]) => iif(
+        take(1),
+        mergeMap(online => iif(
           () => online,
-          this.cacheResponse(hash, defaultClient.request(request, observe), observe)
-            .pipe(catchError((e: HttpErrorResponse) => e.status === 0 ? CacheableClient.parseCache(cache) : throwError(e))),
-          CacheableClient.parseCache(cache)))
+          this.cacheResponse(request, observe, defaultClient),
+          this.getCache(request)
+        ))
       );
   }
 
-  // TODO Remove
-  private cachedRequest(request: RestRequest, observe: ObserveOptions, defaultClient?: HttpRestClient<any>): Observable<any> {
-    return CacheableClient.hashRequest(request)
+  private cacheResponse = (request: RestRequest, observe: ObserveOptions, defaultClient: HttpRestClient<any>) =>
+    CacheableClient
+      .hashRequest(request)
       .pipe(
-        map(hash => [ hash, this.persistence.get(hash) ]),
-        mergeMap(([ hash, cache ]) => iif(
-          () => cache === null,
-          this.cacheResponse(hash, defaultClient.request(request, observe), observe),
-          CacheableClient.parseCache(cache)))
-      );
-  }
+        mergeMap(hash => defaultClient
+          .request(request, observe)
+          .pipe(
+            tap(res => this.persistence.put(hash, JSON.stringify(observe === ObserveOptions.Body ? res : res.body))),
+            catchError((e: HttpErrorResponse) => e.status === 0 ? this.getCache(request) : throwError(e)))));
 
-  private cacheResponse(hash: string, response: Observable<HttpResponse<any> | any>, observe: ObserveOptions) {
-    return response.pipe(tap(res => this.persistence.put(hash, JSON.stringify(observe === ObserveOptions.Body ? res : res.body))));
-  }
+  private getCache = (request: RestRequest) =>
+    CacheableClient
+      .hashRequest(request)
+      .pipe(
+        mergeMap(hash => CacheableClient.parseCache(this.persistence.get(hash))));
 }
