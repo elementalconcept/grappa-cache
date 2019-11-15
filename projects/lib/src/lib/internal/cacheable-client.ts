@@ -4,11 +4,13 @@ import { iif, Observable, of, throwError } from 'rxjs';
 import { catchError, mergeMap, take, tap } from 'rxjs/operators';
 
 import { OfflineMonitorService } from '@elemental-concept/offline-monitor';
-import { HttpRestClient, ObserveOptions, RestRequest, UrlParser } from '@elemental-concept/grappa';
+import { HttpRestClient, ObserveOptions, Registry, RestRequest, UrlParser } from '@elemental-concept/grappa';
 
 import { sha256 } from './sha256';
 import { PersistenceManager } from '../public/persistence/persistence-manager';
 import { LocalStorage } from '../public/persistence/local-storage';
+import { CustomMetadataKey } from './constants';
+import { MethodOptions } from './method-options';
 
 export class CacheableClient implements HttpRestClient<any> {
   // TODO We should use Angular DI instead in the future
@@ -55,17 +57,36 @@ export class CacheableClient implements HttpRestClient<any> {
   }
 
   request(request: RestRequest, observe: ObserveOptions, defaultClient?: HttpRestClient<any>): Observable<any> {
-    return this.offlineMonitor
+    const meta: MethodOptions = Registry.getCustomMetadataForDescriptor(
+      request.classDescriptor,
+      request.methodDescriptor,
+      CustomMetadataKey);
+
+    switch (meta.cacheMode) {
+      case 'response':
+        return this.runCachedResponse(request, observe, defaultClient);
+
+      case 'replayRequest':
+        return this.runCachedRequest(request, observe, defaultClient);
+
+      default:
+        return defaultClient.request(request, observe);
+    }
+  }
+
+  private runCachedRequest = (request: RestRequest, observe: ObserveOptions, defaultClient: HttpRestClient<any>) => {
+    return of(null);
+  };
+
+  private runCachedResponse = (request: RestRequest, observe: ObserveOptions, defaultClient: HttpRestClient<any>) =>
+    this.offlineMonitor
       .state
       .pipe(
         take(1),
         mergeMap(online => iif(
           () => online,
           this.cacheResponse(request, observe, defaultClient),
-          this.getCache(request)
-        ))
-      );
-  }
+          this.getCache(request))));
 
   private cacheResponse = (request: RestRequest, observe: ObserveOptions, defaultClient: HttpRestClient<any>) =>
     CacheableClient
