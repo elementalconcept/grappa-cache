@@ -62,7 +62,11 @@ export class CacheableClient implements HttpRestClient<any> {
     return sha256(key);
   }
 
-  request(request: RestRequest, observe: ObserveOptions, defaultClient?: HttpRestClient<any>): Observable<any> {
+  bypass(request: RestRequest, observe: ObserveOptions): Observable<any> {
+    return Registry.defaultClient.request(request, observe);
+  }
+
+  request(request: RestRequest, observe: ObserveOptions): Observable<any> {
     const meta: MethodOptions = Registry.getCustomMetadataForDescriptor(
       request.classDescriptor,
       request.methodDescriptor,
@@ -70,24 +74,24 @@ export class CacheableClient implements HttpRestClient<any> {
 
     switch (meta.cacheMode) {
       case 'response':
-        return this.runCachedResponse(request, observe, defaultClient);
+        return this.runCachedResponse(request, observe);
 
       case 'replayRequest':
-        return this.runCachedRequest(request, observe, defaultClient, meta.replyWith);
+        return this.runCachedRequest(request, observe, meta.replyWith);
 
       default:
-        return defaultClient.request(request, observe);
+        return Registry.defaultClient.request(request, observe);
     }
   }
 
-  private runCachedRequest = (request: RestRequest, observe: ObserveOptions, defaultClient: HttpRestClient<any>, replyWith: any) => {
+  private runCachedRequest = (request: RestRequest, observe: ObserveOptions, replyWith: any) => {
     return this.offlineMonitor
       .state
       .pipe(
         take(1),
         mergeMap(online => iif(
           () => online,
-          defaultClient
+          Registry.defaultClient
             .request(request, observe)
             .pipe(catchError((e: HttpErrorResponse) => e.status === 0 ? this.saveRequest(request, replyWith) : throwError(e))),
           this.saveRequest(request, replyWith))));
@@ -112,21 +116,21 @@ export class CacheableClient implements HttpRestClient<any> {
         this.persistence.put(RequestCacheKey, JSON.stringify(records));
       }));
 
-  private runCachedResponse = (request: RestRequest, observe: ObserveOptions, defaultClient: HttpRestClient<any>) =>
+  private runCachedResponse = (request: RestRequest, observe: ObserveOptions) =>
     this.offlineMonitor
       .state
       .pipe(
         take(1),
         mergeMap(online => iif(
           () => online,
-          this.cacheResponse(request, observe, defaultClient),
+          this.cacheResponse(request, observe),
           this.getCache(request))));
 
-  private cacheResponse = (request: RestRequest, observe: ObserveOptions, defaultClient: HttpRestClient<any>) =>
+  private cacheResponse = (request: RestRequest, observe: ObserveOptions) =>
     CacheableClient
       .hashRequest(request)
       .pipe(
-        mergeMap(hash => defaultClient
+        mergeMap(hash => Registry.defaultClient
           .request(request, observe)
           .pipe(
             tap(res => this.persistence.put(hash, JSON.stringify(observe === ObserveOptions.Body ? res : res.body))),
