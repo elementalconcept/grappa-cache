@@ -93,24 +93,24 @@ export class CacheableClient implements HttpRestClient<any> {
           this.saveRequest(request, replyWith))));
   };
 
-  private saveRequest = (request: RestRequest, replyWith: any) => {
-    const storedValue = this.persistence.get(RequestCacheKey);
-    const records: RequestCacheRecord[] = storedValue === null ? [] : JSON.parse(storedValue);
+  private saveRequest = (request: RestRequest, replyWith: any) =>
+    of(replyWith)
+      .pipe(tap(() => {
+        const storedValue = this.persistence.get(RequestCacheKey);
+        const records: RequestCacheRecord[] = storedValue === null ? [] : JSON.parse(storedValue);
 
-    records.push({
-      baseUrl: CacheableClient.getBaseUrl(request),
-      endpoint: request.endpoint,
-      method: request.method,
-      headers: request.headers,
-      params: request.params,
-      args: request.args,
-      processed: false
-    });
+        records.push({
+          baseUrl: CacheableClient.getBaseUrl(request),
+          endpoint: request.endpoint,
+          method: request.method,
+          headers: request.headers,
+          params: request.params,
+          args: request.args,
+          processed: false
+        });
 
-    this.persistence.put(RequestCacheKey, JSON.stringify(records));
-
-    return of(replyWith);
-  };
+        this.persistence.put(RequestCacheKey, JSON.stringify(records));
+      }));
 
   private runCachedResponse = (request: RestRequest, observe: ObserveOptions, defaultClient: HttpRestClient<any>) =>
     this.offlineMonitor
