@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 
-import { iif, Observable, of, throwError } from 'rxjs';
-import { catchError, mergeMap, take, tap } from 'rxjs/operators';
+import { from, iif, Observable, of, throwError } from 'rxjs';
+import { catchError, map, mergeMap, reduce, take, tap } from 'rxjs/operators';
 
 import { OfflineMonitorService } from '@elemental-concept/offline-monitor';
 import { HttpRestClient, ObserveOptions, Registry, RestRequest, UrlParser } from '@elemental-concept/grappa';
@@ -62,9 +62,53 @@ export class CacheableClient implements HttpRestClient<any> {
     return sha256(key);
   }
 
-  bypass(request: RestRequest, observe: ObserveOptions): Observable<any> {
-    return Registry.defaultClient.request(request, observe);
+  private static cacheToRequest(cache: RequestCacheRecord): RestRequest {
+    return {
+      baseUrl: cache.baseUrl,
+      endpoint: cache.endpoint,
+      method: cache.method,
+      headers: cache.headers,
+      params: cache.params,
+      args: cache.args
+    } as RestRequest;
   }
+
+  private static requestToCache(request: RestRequest, observe: ObserveOptions): RequestCacheRecord {
+    return {
+      baseUrl: CacheableClient.getBaseUrl(request),
+      endpoint: request.endpoint,
+      method: request.method,
+      observe,
+      headers: request.headers,
+      params: request.params,
+      args: request.args,
+      processed: false
+    } as RequestCacheRecord;
+  }
+
+  replay = (cache: RequestCacheRecord[]): Observable<any> =>
+    this.offlineMonitor
+      .state
+      .pipe(
+        take(1),
+        mergeMap(online => iif(
+          () => online,
+          from(cache)
+            .pipe(
+              mergeMap(record => this.bypass(record)
+                .pipe(
+                  map(() => ({ ...record, processed: true } as RequestCacheRecord)),
+                  catchError(() => of(record)))),
+              reduce<RequestCacheRecord>((acc, r) => acc.concat(r), [] as RequestCacheRecord[]),
+              map(records => records.filter(record => !record.processed)),
+              tap(records => this.persistence.put(RequestCacheKey, JSON.stringify(records))),
+              map(records => cache.length - records.length)
+            ),
+          of(0)
+        )));
+
+  bypass = (record: RequestCacheRecord): Observable<any> =>
+    Registry.defaultClient.request(CacheableClient.cacheToRequest(record), record.observe);
 
   request(request: RestRequest, observe: ObserveOptions): Observable<any> {
     const meta: MethodOptions = Registry.getCustomMetadataForDescriptor(
@@ -93,25 +137,17 @@ export class CacheableClient implements HttpRestClient<any> {
           () => online,
           Registry.defaultClient
             .request(request, observe)
-            .pipe(catchError((e: HttpErrorResponse) => e.status === 0 ? this.saveRequest(request, replyWith) : throwError(e))),
-          this.saveRequest(request, replyWith))));
+            .pipe(catchError((e: HttpErrorResponse) => e.status === 0 ? this.saveRequest(request, observe, replyWith) : throwError(e))),
+          this.saveRequest(request, observe, replyWith))));
   };
 
-  private saveRequest = (request: RestRequest, replyWith: any) =>
+  private saveRequest = (request: RestRequest, observe: ObserveOptions, replyWith: any) =>
     of(replyWith)
       .pipe(tap(() => {
         const storedValue = this.persistence.get(RequestCacheKey);
         const records: RequestCacheRecord[] = storedValue === null ? [] : JSON.parse(storedValue);
 
-        records.push({
-          baseUrl: CacheableClient.getBaseUrl(request),
-          endpoint: request.endpoint,
-          method: request.method,
-          headers: request.headers,
-          params: request.params,
-          args: request.args,
-          processed: false
-        });
+        records.push(CacheableClient.requestToCache(request, observe));
 
         this.persistence.put(RequestCacheKey, JSON.stringify(records));
       }));
