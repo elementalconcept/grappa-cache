@@ -11,8 +11,14 @@ export class AppComponent {
   constructor(private readonly appService: AppService) {
   }
 
-  makeTestCall() {
+  makeTestGetCall() {
     this.appService.test().subscribe(
+      r => console.log(r),
+      e => console.log(e));
+  }
+
+  makeTestPostCall() {
+    this.appService.testWithParams('abc', { data: 'something' }).subscribe(
       r => console.log(r),
       e => console.log(e));
   }
