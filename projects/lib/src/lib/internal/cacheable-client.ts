@@ -116,6 +116,10 @@ export class CacheableClient implements HttpRestClient<any> {
       request.methodDescriptor,
       CustomMetadataKey);
 
+    if (meta === null) {
+      return Registry.defaultClient.request(request, observe);
+    }
+
     switch (meta.cacheMode) {
       case 'response':
         return this.runCachedResponse(request, observe);
