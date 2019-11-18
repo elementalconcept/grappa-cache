@@ -15,7 +15,7 @@
   "peerDependencies": {
     "@angular/common": "^8.0.0",
     "@angular/core": "^8.0.0",
-    "@elemental-concept/grappa": "^0.5.0",
+    "@elemental-concept/grappa": "^0.6.0",
     "@elemental-concept/offline-monitor": "^0.2.0",
     "rxjs": ">= 6.0.0 < 7"
   }
