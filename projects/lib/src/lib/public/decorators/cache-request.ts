@@ -1,4 +1,4 @@
-import { Registry } from '@elemental-concept/grappa/lib/internal/registry/registry';
+import { Registry } from '@elemental-concept/grappa';
 
 import { CustomMetadataKey } from '../../internal/constants';
 import { MethodOptions } from '../../internal/method-options';
