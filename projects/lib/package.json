@@ -1,6 +1,6 @@
 {
   "name": "@elemental-concept/grappa-cache",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Decorator-powered caching layer for Grappa and Angular",
   "author": "Elemental Concept",
   "homepage": "https://github.com/elementalconcept/grappa-cache#readme",
