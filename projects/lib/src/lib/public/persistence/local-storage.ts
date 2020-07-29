@@ -6,7 +6,7 @@ export class LocalStorage implements PersistenceManager {
     .filter(key => key.indexOf(StorageKeyPrefix) === 0)
     .forEach(this.remove);
 
-  get = (key: string): string | null => window.localStorage.getItem(StorageKeyPrefix + key);
+  get = (key: string): string | null | Promise<string | null> => window.localStorage.getItem(StorageKeyPrefix + key);
 
   put = (key: string, value: string) => window.localStorage.setItem(StorageKeyPrefix + key, value);
 

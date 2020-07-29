@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 
-import { of } from 'rxjs';
+import { defer, from, iif, Observable, of } from 'rxjs';
+import { map, mergeMap } from 'rxjs/operators';
 
 import { PersistenceManager } from '../persistence/persistence-manager';
 import { LocalStorage } from '../persistence/local-storage';
@@ -17,33 +18,33 @@ export class CacheReplayService {
   constructor() {
   }
 
-  get cachePresent(): boolean {
-    const cache = this.getCache();
-    return cache !== null && cache.length > 0;
+  get cachePresent(): Observable<boolean> {
+    return this.getCache()
+      .pipe(
+        map(cache => cache !== null && cache.length > 0));
   }
 
-  replay = () => {
-    const cache = this.getCache();
+  replay = () => this.getCache()
+    .pipe(
+      mergeMap(cache => iif(
+        () => cache === null,
+        defer(() => of(0)),
+        defer(() => this.client.replay(cache))
+      )));
 
-    if (cache === null) {
-      return of(0);
-    }
+  getCache = (): Observable<RequestCacheRecord[] | null> =>
+    from(Promise.resolve(this.persistence.get(RequestCacheKey)))
+      .pipe(
+        map(cache => {
+          if (cache !== null) {
+            try {
+              return (JSON.parse(cache) as RequestCacheRecord[]);
+            } finally {
+            }
+          }
 
-    return this.client.replay(cache);
-  };
-
-  getCache = (): RequestCacheRecord[] | null => {
-    const cache = this.persistence.get(RequestCacheKey);
-
-    if (cache !== null) {
-      try {
-        return (JSON.parse(cache) as RequestCacheRecord[]);
-      } finally {
-      }
-    }
-
-    return null;
-  };
+          return null;
+        }));
 
   replayCacheRecord = (record: RequestCacheRecord) => this.client.bypass(record);
 }
