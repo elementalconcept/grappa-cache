@@ -11,12 +11,13 @@ import { PersistenceManager } from '../public/persistence/persistence-manager';
 import { CustomMetadataKey, RequestCacheKey } from './constants';
 import { MethodOptions } from './method-options';
 import { RequestCacheRecord } from './request-cache-record';
+import { LocalStorage } from '../public/persistence/local-storage';
 
 export class CacheableClient implements HttpRestClient<any> {
   // TODO We should use Angular DI instead in the future
   private readonly offlineMonitor = new OfflineMonitorService();
 
-  constructor(private readonly persistence: PersistenceManager) {
+  constructor(private readonly persistence: PersistenceManager = new LocalStorage()) {
   }
 
   private static parseCache(cache: string | null) {
