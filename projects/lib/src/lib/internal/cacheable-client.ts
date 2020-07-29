@@ -8,7 +8,6 @@ import { HttpRestClient, ObserveOptions, Registry, RestRequest, UrlParser } from
 
 import { sha256 } from './sha256';
 import { PersistenceManager } from '../public/persistence/persistence-manager';
-import { LocalStorage } from '../public/persistence/local-storage';
 import { CustomMetadataKey, RequestCacheKey } from './constants';
 import { MethodOptions } from './method-options';
 import { RequestCacheRecord } from './request-cache-record';
@@ -16,7 +15,9 @@ import { RequestCacheRecord } from './request-cache-record';
 export class CacheableClient implements HttpRestClient<any> {
   // TODO We should use Angular DI instead in the future
   private readonly offlineMonitor = new OfflineMonitorService();
-  private readonly persistence: PersistenceManager = new LocalStorage();
+
+  constructor(private readonly persistence: PersistenceManager) {
+  }
 
   private static parseCache(cache: string | null) {
     if (cache === null) {
