@@ -134,6 +134,12 @@ export class CacheableClient implements HttpRestClient<any> {
     }
   }
 
+  getRequestCache = (): Observable<RequestCacheRecord[]> =>
+    from(Promise.resolve(this.persistence.get(RequestCacheKey)))
+      .pipe(
+        map(storedValue => storedValue === null ? [] : JSON.parse(storedValue)),
+        catchError(() => of([])));
+
   private runCachedRequest = (request: RestRequest, observe: ObserveOptions, replyWith: any) => {
     return this.offlineMonitor
       .state
