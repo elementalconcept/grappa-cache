@@ -1,6 +1,6 @@
 {
   "name": "@elemental-concept/grappa-cache",
-  "version": "0.0.5",
+  "version": "0.8.2",
   "description": "Decorator-powered caching layer for Grappa and Angular",
   "author": "Elemental Concept",
   "homepage": "https://github.com/elementalconcept/grappa-cache#readme",
@@ -13,9 +13,9 @@
     "url": "https://github.com/elementalconcept/grappa-cache/issues"
   },
   "peerDependencies": {
-    "@angular/common": "^8.0.0",
-    "@angular/core": "^8.0.0",
-    "@elemental-concept/grappa": "^0.6.0",
+    "@angular/common": ">= 8 < 12",
+    "@angular/core": ">= 8 < 12",
+    "@elemental-concept/grappa": "^0.8.2",
     "@elemental-concept/offline-monitor": "^0.2.0",
     "rxjs": ">= 6.0.0 < 7"
   }
