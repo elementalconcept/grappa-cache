@@ -4,8 +4,8 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
-    "build": "ng build lib",
-    "publish": "npm publish --access public dist/lib",
+    "build": "ng build lib --prod",
+    "publish": "npm publish dist/lib",
     "test": "ng test",
     "lint": "ng lint",
     "e2e": "ng e2e",
