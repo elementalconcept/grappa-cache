@@ -16,7 +16,7 @@
     "@angular/common": ">= 8 < 12",
     "@angular/core": ">= 8 < 12",
     "@elemental-concept/grappa": "^0.8.2",
-    "@elemental-concept/offline-monitor": "^0.2.0",
+    "@elemental-concept/offline-monitor": "^0.8.2",
     "rxjs": ">= 6.0.0 < 7"
   }
 }
